@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import FirebaseAuth
+import UIKit
 
 struct ShakeEffect: GeometryEffect {
     var trigger: Bool
@@ -21,28 +23,11 @@ struct ShakeEffect: GeometryEffect {
     }
 }
 
-class FlagService: ObservableObject {
-    @Published var flags: [FlagModel] = []
-
-    func fetchFlags() {
-        guard let url = URL(string: "https://flagcdn.com/en/codes.json") else { return }
-        URLSession.shared.dataTask(with: url) { data, _, error in
-            guard let data = data, error == nil,
-                  let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return }
-
-            let items = dict.map { FlagModel(code: $0.key, name: $0.value) }
-            DispatchQueue.main.async {
-                self.flags = items
-            }
-        }.resume()
-    }
-}
 
 struct ContentView: View {
+    var flagList: [FlagModel]
     
-    
-    
-    @StateObject var flagService = FlagService()
+    @EnvironmentObject var authVM: AuthViewModel
     
     @State var Guess = ""
     @State var currentFlag: FlagModel? = nil
@@ -58,14 +43,25 @@ struct ContentView: View {
     @State var flagRotation: Double = 0.0
     @State var flagShake: Bool = false
     @State var showWrongOverlay: Bool = false
-
+    @State var isCheckButtonDisabled = false
+    @StateObject var firestoreService = FirestoreService()
+    
+    /// Haptic feedback helper
+    private func haptic(success: Bool) {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(success ? .success : .error)
+    }
+    
     func pickRandomFlag() {
-        guard !flagService.flags.isEmpty else { return }
-        currentFlag = flagService.flags.randomElement()
+        guard !flagList.isEmpty else { return }
+        currentFlag = flagList.randomElement()
     }
     
     func checkAnswer() {
+        guard !isCheckButtonDisabled else { return }
+        isCheckButtonDisabled = true
         if let currentFlag = currentFlag, isAnswerTrue(correctans: currentFlag, ans: Guess) {
+            haptic(success: true)
             withAnimation(.spring()) {
                 resultScale = 1.5
                 resultOpacity = 1.0
@@ -77,28 +73,34 @@ struct ContentView: View {
                     resultScale = 1.0
                     resultOpacity = 0.0
                     scoreScale = 1.0
+                    
                 }
             }
             showResult = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 YourScore += 1
+                firestoreService.saveScore(score: YourScore)
                 pickRandomFlag()
                 Guess = ""
                 showResult = nil
+                isCheckButtonDisabled = false
             }
         } else {
             showResult = false
+            haptic(success: false)
             feedbackText = isGuessClose(to: Guess, correct: currentFlag?.name ?? "") ? "Close Guess!" : "Wrong"
             withAnimation(.easeInOut(duration: 0.2)) {
                 showWrongOverlay = true
                 resultScale = 1.2
                 resultOpacity = 1.0
+                
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 withAnimation {
                     showWrongOverlay = false
                     resultScale = 1.0
                     resultOpacity = 0.0
+                    isCheckButtonDisabled = false
                 }
             }
             if TryChance > 1 {
@@ -111,7 +113,7 @@ struct ContentView: View {
         }
     }
     
-        
+    
     func RestartGame() {
         YourScore = 0
         pickRandomFlag()
@@ -122,8 +124,12 @@ struct ContentView: View {
     }
     
     var body: some View {
-        
-        
+        NavigationView {
+            ZStack{
+                
+                BackgroundView()
+                
+                VStack {
                 ZStack {
                     Rectangle()
                         .fill(Color.clear)
@@ -137,7 +143,6 @@ struct ContentView: View {
                                 .scaleEffect(scoreScale)
                                 .animation(.spring(), value: scoreScale)
                             
-                            
                             HStack {
                                 Button("Restart Game") {
                                     RestartGame()
@@ -149,7 +154,6 @@ struct ContentView: View {
                             }
                             
                             ZStack {
-                                
                                 if let result = showResult {
                                     if result {
                                         Text("Correct")
@@ -172,80 +176,77 @@ struct ContentView: View {
                                         .foregroundColor(.gray)
                                         .multilineTextAlignment(.center)
                                 }
-                                
                             }
                             .padding(.top)
                         }
                         .padding(.horizontal)
-                        
                     }
                 }
-        
-        VStack(alignment: .center, spacing: 0){
-            
-            ZStack {
-                if let flag = currentFlag {
-                    AsyncImage(
-                        url: flag.imageUrl,
-                        content: { image in
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .rotationEffect(.degrees(flagRotation))
-                        },
-                        placeholder: {
+                
+                VStack(alignment: .center, spacing: 0){
+                    
+                    ZStack {
+                        Rectangle()
+                            .fill(Color.gray.opacity(0.3))
+                            .frame(width : 400, height: 280)
+                        
+                        if let flag = currentFlag {
+                            AsyncImage(
+                                url: URL(string: flag.imageUrl),
+                                content: { image in
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .rotationEffect(.degrees(flagRotation))
+                                },
+                                placeholder: {
+                                    ProgressView()
+                                }
+                            )
+                            .frame(height: 300)
+                            .overlay(
+                                GeometryReader { geo in
+                                    Rectangle()
+                                        .fill(Color.red.opacity(0.4))
+                                        .frame(width: geo.size.width, height: geo.size.height)
+                                        .opacity(showWrongOverlay ? 1 : 0)
+                                        .animation(.easeInOut(duration: 0.2), value: showWrongOverlay)
+                                }
+                            )
+                        } else {
                             ProgressView()
+                                .frame(height: 300)
                         }
-                    )
-                    .frame(height: 300)
-                    .overlay(
-                        GeometryReader { geo in
-                            Rectangle()
-                                .fill(Color.red.opacity(0.4))
-                                .frame(width: geo.size.width, height: geo.size.height)
-                                .opacity(showWrongOverlay ? 1 : 0)
-                                .animation(.easeInOut(duration: 0.2), value: showWrongOverlay)
+                    }
+                    
+                    HStack {
+                        TextField("Enter your guess", text: $Guess)
+                            .padding()
+                            .background(Color(.systemGray6))
+                            .cornerRadius(10)
+                        Button("Check") {
+                            checkAnswer()
                         }
-                    )
-                } else {
-                    ProgressView()
-                        .frame(height: 300)
+                        .disabled(TryChance <= 0 || isCheckButtonDisabled)
+                        .buttonStyle(.borderedProminent)
+                        .padding()
+                    }
+                    // Test
+                    if let correct = currentFlag {
+                        Text("Correct Answer: \(correct.name)")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                            .padding(.leading)
+                    }
                 }
-            }
-        
-            HStack {
-                TextField("Enter your guess", text: $Guess)
-                    .padding()
-                    .background(Color.gray.opacity(0.2))
-                    .cornerRadius(10)
-                Button("Check") {
-                    checkAnswer()
-                }
-                .disabled(TryChance <= 0)
-                .buttonStyle(.borderedProminent)
                 .padding()
+                .onAppear {
+                    pickRandomFlag()
+                }
             }
-            // Test
-            if let correct = currentFlag {
-                Text("Correct Answer: \(correct.name)")
-                    .font(.caption)
-                    .foregroundColor(.blue)
-                    .padding(.leading)
-            }
-        }
-        .padding()
-        .onAppear {
-            flagService.fetchFlags()
-            
-            // FlagService flags güncellenince yeni flag ata
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                pickRandomFlag()
-            }
-        }
-    
-    }
+        }}
 }
-
+}
 func isAnswerTrue( correctans : FlagModel , ans : String) -> Bool {
     
     if correctans.name.lowercased() == ans.lowercased() {
@@ -254,11 +255,4 @@ func isAnswerTrue( correctans : FlagModel , ans : String) -> Bool {
         return false
     }
 
-}
-
-
-
-
-#Preview {
-    ContentView()
 }

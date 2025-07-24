@@ -6,14 +6,33 @@
 //
 
 import SwiftUI
+import FirebaseCore
+
+
+class AppDelegate: NSObject, UIApplicationDelegate {
+  func application(_ application: UIApplication,
+                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+    FirebaseApp.configure()
+
+    return true
+  }
+}
 
 @main
 struct GuessTheFlagApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var authVM = AuthViewModel()
+    @StateObject private var flagService = FlagService()
     
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if authVM.isSignedIn {
+                HomePageView()
+                    .environmentObject(flagService)   // tek bir FlagService
+                    .environmentObject(authVM)
+            } else {
+                LoginView().environmentObject(authVM)
+            }
         }
     }
-    
 }
