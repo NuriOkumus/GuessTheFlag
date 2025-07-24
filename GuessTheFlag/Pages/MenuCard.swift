@@ -20,16 +20,16 @@ struct MenuCard: Identifiable {
 private let menuCards: [MenuCard] = [
     .init(title: "Maps",
           systemImage: "map.fill",
-          destination: AnyView(Text("Under Construction"))),
+          destination: AnyView(PlaceHolderView())),
     .init(title: "Flags",
           systemImage: "flag.fill",
           destination: AnyView(RegionSelectionView()) ),
     .init(title: "Emblems",
           systemImage: "shield.lefthalf.filled",
-          destination: AnyView(Text("Under Construction"))),
+          destination: AnyView(PlaceHolderView())),
     .init(title: "Capitals",
           systemImage: "building.columns.fill",
-          destination: AnyView(Text("Under Construction")))
+          destination: AnyView(PlaceHolderView()))
 ]
 
 struct HomePageView: View {

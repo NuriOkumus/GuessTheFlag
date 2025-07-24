@@ -8,11 +8,30 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @AppStorage("enableHaptic") private var enableHaptic = true
+    @AppStorage("darkMode") private var darkMode = false
+
     var body: some View {
         Form {
-            Toggle("Haptic Feedback", isOn: .constant(true))
-            Toggle("Dark Mode", isOn: .constant(false))
+            Section(header: Text("Preferences")) {
+                Toggle("Haptic Feedback", isOn: $enableHaptic)
+                Toggle("Dark Mode", isOn: $darkMode)
+            }
+
+            Section {
+                Button(role: .destructive) {
+                    resetSettings()
+                } label: {
+                    Label("Reset to Defaults", systemImage: "arrow.counterclockwise")
+                }
+            }
         }
         .navigationTitle("Settings")
+        .preferredColorScheme(darkMode ? .dark : .light)
+    }
+
+    private func resetSettings() {
+        enableHaptic = true
+        darkMode = false
     }
 }

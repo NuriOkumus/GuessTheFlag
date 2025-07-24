@@ -49,6 +49,16 @@ class FirestoreService: ObservableObject {
                 completion(entries)
             }
     }
+
+    // MARK: - Async / Await Wrapper
+    @MainActor
+    func fetchTopScoresAsync(limit: Int = 3) async -> [LeaderboardEntry] {
+        await withCheckedContinuation { continuation in
+            self.fetchTopScores(limit: limit) { entries in
+                continuation.resume(returning: entries)
+            }
+        }
+    }
 }
 
 struct LeaderboardEntry: Identifiable {

@@ -12,25 +12,68 @@ struct LeaderboardView: View {
     @State var topUsers: [LeaderboardEntry] = []
     
     var body: some View {
-        VStack {
-            Text("🏆 Leaderboard")
-                .font(.title)
-                .bold()
-                .padding(.bottom)
+        ZStack {
+            // Background gradient
             
-            List(topUsers) { entry in
-                HStack {
-                    Text(entry.username)
-                    Spacer()
-                    Text("\(entry.score) pts")
-                        .bold()
+            BackgroundView()
+
+            VStack(spacing: 20) {
+                Text("🏆 Leaderboard")
+                    .font(.largeTitle.bold())
+
+                if topUsers.isEmpty {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                } else {
+                    // Ranked list
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(Array(topUsers.enumerated()), id: \.element.id) { index, entry in
+                                HStack {
+                                    // Medal or rank
+                                    Text(index < 3 ? ["🥇","🥈","🥉"][index] : "#\(index + 1)")
+                                        .font(.title3)
+                                        .frame(width: 40, alignment: .leading)
+
+                                    // Display name (truncate email to username)
+                                    Text(entry.username.components(separatedBy: "@").first ?? entry.username)
+                                        .fontWeight(index == 0 ? .bold : .regular)
+                                        .lineLimit(1)
+
+                                    Spacer()
+
+                                    // Score
+                                    Text("\(entry.score) pts")
+                                        .bold()
+                                }
+                                .padding(.vertical, 12)
+                                .padding(.horizontal)
+                                .background(
+                                    index == 0 ? Color.yellow.opacity(0.15) :
+                                    index == 1 ? Color.gray.opacity(0.12) :
+                                    index == 2 ? Color.orange.opacity(0.10) : Color.clear
+                                )
+
+                                // Divider between rows
+                                if index != topUsers.count - 1 {
+                                    Divider()
+                                }
+                            }
+                        }
+                    }
+                    .background(.ultraThinMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                    .shadow(radius: 5)
+                    .frame(maxHeight: 420)
+                    .scrollIndicators(.hidden)
                 }
             }
+            .padding()
         }
-        .onAppear {
-            firestoreService.fetchTopScores { scores in
-                topUsers = scores
-            }
+        .navigationTitle("Leaderboard")
+        .task {
+            // Fetch scores asynchronously on first appearance
+            topUsers = await firestoreService.fetchTopScoresAsync()
         }
     }
 }

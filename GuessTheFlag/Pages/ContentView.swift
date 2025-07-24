@@ -54,7 +54,16 @@ struct ContentView: View {
     
     func pickRandomFlag() {
         guard !flagList.isEmpty else { return }
-        currentFlag = flagList.randomElement()
+        
+        // Try to pick a flag different from the current one.
+        // If there's only one flag in the list, we keep showing it.
+        var newFlag = flagList.randomElement()!
+        if flagList.count > 1 {
+            while newFlag.name == currentFlag?.name {
+                newFlag = flagList.randomElement()!
+            }
+        }
+        currentFlag = newFlag
     }
     
     func checkAnswer() {
@@ -80,6 +89,7 @@ struct ContentView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 YourScore += 1
                 firestoreService.saveScore(score: YourScore)
+                
                 pickRandomFlag()
                 Guess = ""
                 showResult = nil
@@ -130,65 +140,40 @@ struct ContentView: View {
                 BackgroundView()
                 
                 VStack {
-                ZStack {
-                    Rectangle()
-                        .fill(Color.clear)
-                        .frame(height: 140)
+                HStack(alignment: .center, spacing: 24) {
                     VStack {
-                        VStack {
-                            Text("Your Score : \(YourScore)")
-                                .font(.title2)
-                                .multilineTextAlignment(.center)
-                                .padding(.bottom)
-                                .scaleEffect(scoreScale)
-                                .animation(.spring(), value: scoreScale)
-                            
-                            HStack {
-                                Button("Restart Game") {
-                                    RestartGame()
-                                }
-                                .disabled(TryChance > 0)
-                                Spacer()
-                                Text("Remaning Try: \(max(TryChance,0))")
-                                    .font(.title2)
-                            }
-                            
-                            ZStack {
-                                if let result = showResult {
-                                    if result {
-                                        Text("Correct")
-                                            .foregroundColor(.green)
-                                            .font(.title2)
-                                            .multilineTextAlignment(.center)
-                                            .scaleEffect(resultScale)
-                                            .opacity(resultOpacity)
-                                    } else {
-                                        Text(isGameOver ? "Game is Over" : feedbackText)
-                                            .foregroundColor(.red)
-                                            .font(.title2)
-                                            .multilineTextAlignment(.center)
-                                            .scaleEffect(resultScale)
-                                            .opacity(resultOpacity)
-                                    }
-                                } else if TryChance == 3 {
-                                    Text("Take a Guess")
-                                        .font(.title2)
-                                        .foregroundColor(.gray)
-                                        .multilineTextAlignment(.center)
-                                }
-                            }
-                            .padding(.top)
-                        }
-                        .padding(.horizontal)
+                        Text("SCORE")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(YourScore)")
+                            .font(.title.bold())
+                    }
+                    Divider()
+                        .frame(height: 40)
+                    VStack {
+                        Text("TRIES")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Text("\(max(TryChance,0))")
+                            .font(.title.bold())
                     }
                 }
-                
+                .padding(20)
+                .background(.ultraThinMaterial)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(radius: 5)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+                .controlSize(.extraLarge)
+                    
                 VStack(alignment: .center, spacing: 0){
                     
                     ZStack {
-                        Rectangle()
-                            .fill(Color.gray.opacity(0.3))
-                            .frame(width : 400, height: 280)
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .fill(Color(.systemBackground).opacity(0.15))
+                            .shadow(radius: 4)
+                            .aspectRatio(4/3, contentMode: .fit)
                         
                         if let flag = currentFlag {
                             AsyncImage(
@@ -198,12 +183,15 @@ struct ContentView: View {
                                         .resizable()
                                         .scaledToFit()
                                         .rotationEffect(.degrees(flagRotation))
+                                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                                 },
                                 placeholder: {
                                     ProgressView()
                                 }
                             )
                             .frame(height: 300)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                            .shadow(radius: 4)
                             .overlay(
                                 GeometryReader { geo in
                                     Rectangle()
@@ -221,9 +209,7 @@ struct ContentView: View {
                     
                     HStack {
                         TextField("Enter your guess", text: $Guess)
-                            .padding()
-                            .background(Color(.systemGray6))
-                            .cornerRadius(10)
+                            .textFieldStyle(.roundedBorder)
                         Button("Check") {
                             checkAnswer()
                         }
@@ -244,15 +230,27 @@ struct ContentView: View {
                     pickRandomFlag()
                 }
             }
-        }}
-}
-}
-func isAnswerTrue( correctans : FlagModel , ans : String) -> Bool {
-    
-    if correctans.name.lowercased() == ans.lowercased() {
-        return true
-    }else {
-        return false
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Restart") {
+                    RestartGame()
+                }
+            }
+        }
     }
-
+}
+}
+func isAnswerTrue(correctans: FlagModel, ans: String) -> Bool {
+    let cleanedCorrect = correctans.name
+        .lowercased()
+        .components(separatedBy: .whitespacesAndNewlines)
+        .joined()
+    
+    let cleanedAns = ans
+        .lowercased()
+        .components(separatedBy: .whitespacesAndNewlines)
+        .joined()
+    
+    return cleanedCorrect == cleanedAns
 }
