@@ -23,15 +23,26 @@ struct GuessTheFlagApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var authVM = AuthViewModel()
     @StateObject private var flagService = FlagService()
+    @AppStorage("hasSeenHowToPlay") private var hasSeenHowToPlay: Bool = true
     
     var body: some Scene {
         WindowGroup {
             if authVM.isSignedIn {
-                HomePageView()
-                    .environmentObject(flagService)   // tek bir FlagService
-                    .environmentObject(authVM)
+                if hasSeenHowToPlay {
+                    HomePageView()
+                        .environmentObject(flagService)
+                        .environmentObject(authVM)
+                } else {
+                    HowToPlayView()
+                        .environmentObject(flagService)
+                        .environmentObject(authVM)
+                        .onDisappear {
+                            hasSeenHowToPlay = true
+                        }
+                }
             } else {
-                LoginView().environmentObject(authVM)
+                LoginView()
+                    .environmentObject(authVM)
             }
         }
     }

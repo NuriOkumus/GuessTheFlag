@@ -6,6 +6,9 @@ struct LoginView: View {
     @State private var email = ""
     @State private var password = ""
     
+    // Onboarding flag stored in UserDefaults
+    @AppStorage("hasSeenHowToPlay") private var hasSeenHowToPlay: Bool = true
+    
     var body: some View {
         VStack(spacing: 20) {
             Text("Giriş Yap")
@@ -20,6 +23,7 @@ struct LoginView: View {
                 .padding().background(Color(.systemGray6)).cornerRadius(8)
 
             Button("Giriş Yap") {
+                hasSeenHowToPlay = true   // Skip onboarding for returning users
                 authVM.login(email: email, password: password)
             }
             .disabled(email.isEmpty || password.isEmpty)
@@ -30,6 +34,7 @@ struct LoginView: View {
             .cornerRadius(10)
 
             Button("Kayıt Ol") {
+                hasSeenHowToPlay = false  // Show onboarding right after sign‑up
                 authVM.signUp(email: email, password: password)
             }
 

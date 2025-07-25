@@ -79,6 +79,18 @@ struct HomePageView: View {
                         }
                     }
                     .padding(.horizontal)
+                  HStack {
+                      NavigationLink(destination: HowToPlayView(showCloseButton: false)) {
+                          Label("HOW TO PLAY", systemImage: "questionmark.circle")
+                              .font(.headline)
+                              .foregroundColor(.white)
+                              .padding(.vertical, 10)
+                              .padding(.horizontal, 20)
+                              .background(Color.white.opacity(0.15))
+                              .clipShape(Capsule())
+                              .shadow(color: .black.opacity(0.25), radius: 4, x: 0, y: 2)
+                      }
+                  }
                 }
             }
             .toolbar {
@@ -106,4 +118,8 @@ struct HomePageView: View {
             }
         }
     }
+}
+
+#Preview {
+    HomePageView()
 }
